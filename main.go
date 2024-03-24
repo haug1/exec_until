@@ -72,15 +72,25 @@ func ExecuteCommandUntilMatch(command string, pattern string, timeout time.Durat
 		done <- true
 	}()
 
-	select {
-	case line := <-pattern_match:
-		cmd.Process.Kill()
-		return line, false, nil
-	case <-done:
-		return "", true, nil
-	case <-time.After(timeout):
-		cmd.Process.Kill()
-		return "", false, errors.New("timeout reached, pattern not matched")
+	if timeout == 0 {
+		select {
+		case line := <-pattern_match:
+			cmd.Process.Kill()
+			return line, false, nil
+		case <-done:
+			return "", true, nil
+		}
+	} else {
+		select {
+		case line := <-pattern_match:
+			cmd.Process.Kill()
+			return line, false, nil
+		case <-done:
+			return "", true, nil
+		case <-time.After(timeout):
+			cmd.Process.Kill()
+			return "", false, errors.New("timeout reached, pattern not matched")
+		}
 	}
 }
 
