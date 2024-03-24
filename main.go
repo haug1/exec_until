@@ -80,7 +80,7 @@ func ExecuteCommandUntilMatch(command string, pattern string, timeout time.Durat
 			cmd.Process.Kill()
 			return line, nil
 		case <-done:
-			return "", nil
+			return "", errors.New("command completed without a match")
 		}
 	} else {
 		select {
