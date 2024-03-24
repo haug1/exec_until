@@ -77,23 +77,34 @@ func ExecuteCommandUntilMatch(command string, pattern string, timeout time.Durat
 	if timeout == 0 {
 		select {
 		case line := <-pattern_match:
-			cmd.Process.Kill()
-			return line, nil
+			return RETURN_MATCH(line, cmd)
 		case <-done:
-			return "", errors.New("command completed without a match")
+			return RETURN_NO_MATCH()
 		}
 	} else {
 		select {
 		case line := <-pattern_match:
-			cmd.Process.Kill()
-			return line, nil
+			return RETURN_MATCH(line, cmd)
 		case <-done:
-			return "", errors.New("command completed without a match")
+			return RETURN_NO_MATCH()
 		case <-time.After(timeout):
-			cmd.Process.Kill()
-			return "", errors.New("timeout reached, pattern not matched")
+			return RETURN_TIMEOUT(cmd)
 		}
 	}
+}
+
+func RETURN_TIMEOUT(cmd *exec.Cmd) (string, error) {
+	cmd.Process.Kill()
+	return "", errors.New("timeout reached, pattern not matched")
+}
+
+func RETURN_MATCH(line string, cmd *exec.Cmd) (string, error) {
+	cmd.Process.Kill()
+	return line, nil
+}
+
+func RETURN_NO_MATCH() (string, error) {
+	return "", errors.New("command completed without a match")
 }
 
 func MatchPattern(text string, pattern string) (bool, error) {
