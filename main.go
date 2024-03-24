@@ -38,30 +38,26 @@ func main() {
 
 	command := strings.Join(flag.Args(), " ")
 
-	output, command_completed, err := ExecuteCommandUntilMatch(command, *patternFlag, *timeoutFlag)
+	output, err := ExecuteCommandUntilMatch(command, *patternFlag, *timeoutFlag)
 	if err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
 
-	if output != "" {
-		fmt.Println("pattern matched:", output)
-	} else if command_completed {
-		fmt.Println("command completed without a match")
-	}
+	fmt.Println("pattern matched:", output)
 }
 
-func ExecuteCommandUntilMatch(command string, pattern string, timeout time.Duration) (string, bool, error) {
+func ExecuteCommandUntilMatch(command string, pattern string, timeout time.Duration) (string, error) {
 	cmd := exec.Command("bash", "-c", command)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 
 	scanner := bufio.NewScanner(stdout)
 
 	if err := cmd.Start(); err != nil {
-		return "", false, err
+		return "", err
 	}
 
 	done := make(chan bool)
@@ -82,20 +78,20 @@ func ExecuteCommandUntilMatch(command string, pattern string, timeout time.Durat
 		select {
 		case line := <-pattern_match:
 			cmd.Process.Kill()
-			return line, false, nil
+			return line, nil
 		case <-done:
-			return "", true, nil
+			return "", nil
 		}
 	} else {
 		select {
 		case line := <-pattern_match:
 			cmd.Process.Kill()
-			return line, false, nil
+			return line, nil
 		case <-done:
-			return "", true, nil
+			return "", errors.New("command completed without a match")
 		case <-time.After(timeout):
 			cmd.Process.Kill()
-			return "", false, errors.New("timeout reached, pattern not matched")
+			return "", errors.New("timeout reached, pattern not matched")
 		}
 	}
 }
