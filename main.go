@@ -16,6 +16,12 @@ func main() {
 	patternFlag := flag.String("p", "", "Pattern to match (required)")
 	timeoutFlag := flag.Duration("t", 3*time.Second, "Timeout duration in seconds")
 
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "usage: %s [flags] <command>\n\n", os.Args[0])
+		fmt.Println("flags:")
+		flag.PrintDefaults()
+	}
+
 	flag.Parse()
 
 	if *patternFlag == "" {
