@@ -37,3 +37,8 @@ I use [`way-displays`](https://github.com/alex-courtis/way-displays) to manage m
 ```
 ./exec_until -p="Changes successful" way-displays -c ~/.config/way-displays/cfg.dock.yaml
 ```
+
+# TODO
+
+- (fix) Currently known issue, sometimes tests error, concurrency issue(?) 
+- (feat) Implement verbose flag and hide some logging
