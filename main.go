@@ -14,8 +14,8 @@ import (
 )
 
 func main() {
-	patternFlag := flag.String("p", "", "Pattern to match (required)")
-	timeoutFlag := flag.Duration("t", 3*time.Second, "Timeout duration. Set to 0 for no timeout.")
+	pattern_flag := flag.String("p", "", "Pattern to match (required)")
+	timeout_flag := flag.Duration("t", 3*time.Second, "Timeout duration. Set to 0 for no timeout.")
 
 	flag.Usage = func() {
 		fmt.Print("usage:", os.Args[0], "[flags] <command>\n\n")
@@ -25,7 +25,7 @@ func main() {
 
 	flag.Parse()
 
-	if *patternFlag == "" {
+	if *pattern_flag == "" {
 		fmt.Println("Error: Pattern flag is required.")
 		flag.PrintDefaults()
 		os.Exit(1)
@@ -39,7 +39,7 @@ func main() {
 
 	command := strings.Join(flag.Args(), " ")
 
-	output, err := ExecuteCommandUntilMatch(command, *patternFlag, *timeoutFlag)
+	output, err := executeCommandUntilMatch(command, *pattern_flag, *timeout_flag)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
@@ -48,7 +48,7 @@ func main() {
 	fmt.Println("pattern matched:", output)
 }
 
-func ExecuteCommandUntilMatch(command string, pattern string, timeout time.Duration) (string, error) {
+func executeCommandUntilMatch(command string, pattern string, timeout time.Duration) (string, error) {
 	cmd := exec.Command("bash", "-c", command)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -74,44 +74,44 @@ func ExecuteCommandUntilMatch(command string, pattern string, timeout time.Durat
 		case line := <-pattern_match:
 			return returnMatch(line, cmd)
 		case <-stdout_done:
-			return returnNoMatch(stderr_done)
+			return returnNoMatch()
 		case <-stderr_done:
-			return returnNoMatch(stdout_done)
+			return returnNoMatch()
 		}
 	} else {
 		select {
 		case line := <-pattern_match:
 			return returnMatch(line, cmd)
 		case <-stdout_done:
-			return returnNoMatch(stderr_done)
+			return returnNoMatch()
 		case <-stderr_done:
-			return returnNoMatch(stdout_done)
+			return returnNoMatch()
 		case <-time.After(timeout):
 			return returnTimeout(cmd)
 		}
 	}
 }
 
-func listenForPatternMatches(reader io.ReadCloser, scannerType string, pattern string, pattern_match chan string, done chan bool) {
+func listenForPatternMatches(reader io.ReadCloser, scanner_type string, pattern string, pattern_match chan string, done chan bool) {
 	scanner := bufio.NewScanner(reader)
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		fmt.Println(scannerType, ":", line)
-		if matched, _ := MatchPattern(line, pattern); matched {
+		fmt.Println(scanner_type, ":", line)
+		if matched, _ := matchPattern(line, pattern); matched {
 			pattern_match <- line
 			return
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "Scanner error", scannerType, ":", err)
+		fmt.Fprintln(os.Stderr, "Scanner error", scanner_type, ":", err)
 	}
 
 	done <- true
 }
 
-func MatchPattern(text string, pattern string) (bool, error) {
+func matchPattern(text string, pattern string) (bool, error) {
 	matched, err := regexp.MatchString(pattern, text)
 	if err != nil {
 		return false, err
@@ -119,9 +119,14 @@ func MatchPattern(text string, pattern string) (bool, error) {
 	return matched, nil
 }
 
+const (
+	ERROR_PATTERN_NOT_FOUND = "command completed without a match"
+	ERROR_TIMEOUT           = "timeout reached, pattern not matched"
+)
+
 func returnTimeout(cmd *exec.Cmd) (string, error) {
 	cmd.Process.Kill()
-	return "", errors.New("timeout reached, pattern not matched")
+	return "", errors.New(ERROR_TIMEOUT)
 }
 
 func returnMatch(line string, cmd *exec.Cmd) (string, error) {
@@ -129,7 +134,6 @@ func returnMatch(line string, cmd *exec.Cmd) (string, error) {
 	return line, nil
 }
 
-func returnNoMatch(exitSignalFromOtherListener chan bool) (string, error) {
-	<-exitSignalFromOtherListener
-	return "", errors.New("command completed without a match")
+func returnNoMatch() (string, error) {
+	return "", errors.New(ERROR_PATTERN_NOT_FOUND)
 }
