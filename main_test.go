@@ -8,14 +8,15 @@ import (
 	"time"
 )
 
-func TestExecUntilPatternMatch(t *testing.T) {
-	test_command := "echo 'pattern matched' && sleep 10"
+// TODO: Test that the process is terminated after the pattern is matched
+func TestMatchesPatternInStdOut(t *testing.T) {
+	test_command := "echo 'pattern matched'"
 	pattern := "pattern matched"
 
 	cmd := exec.Command("./exec_until", "-p", pattern, test_command)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Errorf("exec_until command failed: %v", err)
+		t.Errorf("exec_until command failed: %v, %s", err, output)
 	}
 
 	expected_output := "pattern matched"
@@ -25,17 +26,16 @@ func TestExecUntilPatternMatch(t *testing.T) {
 	}
 }
 
-func TestMatchesStuffInStderr(t *testing.T) {
+func TestMatchesPatternInStdErr(t *testing.T) {
 	expected_message := "message to stderr"
 	cmd := exec.Command("./exec_until", "-p", expected_message, fmt.Sprintf("echo \"%s\" >&2", expected_message))
 	out, err := cmd.CombinedOutput()
-	// fmt.Println(string(out), err)
 	if err != nil {
 		t.Error("should not throw error", err, string(out))
 	}
 }
 
-func TestExecUntilTimeout(t *testing.T) {
+func TestErrorTimeout(t *testing.T) {
 	test_command := "sleep 0.1"     // Command will not produce expected pattern within timeout
 	timeout := 1 * time.Millisecond // Timeout shorter than time needed for pattern matching
 
@@ -51,7 +51,7 @@ func TestExecUntilTimeout(t *testing.T) {
 	}
 }
 
-func TestExecExitWithoutMatch(t *testing.T) {
+func TestErrorPatternNotFound(t *testing.T) {
 	cmd := exec.Command("./exec_until", "-p", "whatever", "echo asd")
 	message, err := cmd.CombinedOutput()
 

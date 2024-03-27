@@ -40,7 +40,5 @@ I use [`way-displays`](https://github.com/alex-courtis/way-displays) to manage m
 
 # TODO
 
-- (fix) Currently known issue, sometimes tests error, concurrency issue(?) 
-- (feat) Implement verbose flag and hide some logging
 - (fix) Currently some issues with passing arguments, i.e. if you pass `exec_until -p "hi" mycommand | grep something`, command `mycommand | grep something` is not correctly executed. Current workaround: `exec_until -p "hi" "mycommand | grep something"`
 - (fix) Currently user lose zsh suggestions and syntax highlighting on command passed to CLI app

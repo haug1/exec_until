@@ -16,6 +16,7 @@ import (
 func main() {
 	pattern_flag := flag.String("p", "", "Pattern to match (required)")
 	timeout_flag := flag.Duration("t", 3*time.Second, "Timeout duration. Set to 0 for no timeout.")
+	kill_flag := flag.Bool("k", true, "Whether the process should be terminated on pattern matched.")
 
 	flag.Usage = func() {
 		fmt.Print("usage:", os.Args[0], "[flags] <command>\n\n")
@@ -26,37 +27,35 @@ func main() {
 	flag.Parse()
 
 	if *pattern_flag == "" {
-		fmt.Println("Error: Pattern flag is required.")
+		warn("Error: Pattern flag is required.")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
 	if flag.NArg() < 1 {
-		fmt.Println("Error: Command argument is required.")
+		warn("Error: Command argument is required.")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
 	command := strings.Join(flag.Args(), " ")
 
-	output, err := executeCommandUntilMatch(command, *pattern_flag, *timeout_flag)
+	err := executeCommandUntilMatch(command, *pattern_flag, *timeout_flag, *kill_flag)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error:", err)
+		warn("Error:", err)
 		os.Exit(1)
 	}
-
-	fmt.Println("pattern matched:", output)
 }
 
-func executeCommandUntilMatch(command string, pattern string, timeout time.Duration) (string, error) {
+func executeCommandUntilMatch(command string, pattern string, timeout time.Duration, do_kill bool) error {
 	cmd := exec.Command("bash", "-c", command)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return "", err
+		return err
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return "", err
+		return err
 	}
 	stdout_done := make(chan bool)
 	stderr_done := make(chan bool)
@@ -66,13 +65,13 @@ func executeCommandUntilMatch(command string, pattern string, timeout time.Durat
 	go listenForPatternMatches(stderr, "stderr", pattern, pattern_match, stderr_done)
 
 	if err := cmd.Start(); err != nil {
-		return "", err
+		return err
 	}
 
 	if timeout == 0 {
 		select {
 		case line := <-pattern_match:
-			return returnMatch(line, cmd)
+			return returnMatch(line, cmd, do_kill)
 		case <-stdout_done:
 			return returnNoMatch()
 		case <-stderr_done:
@@ -81,7 +80,7 @@ func executeCommandUntilMatch(command string, pattern string, timeout time.Durat
 	} else {
 		select {
 		case line := <-pattern_match:
-			return returnMatch(line, cmd)
+			return returnMatch(line, cmd, do_kill)
 		case <-stdout_done:
 			return returnNoMatch()
 		case <-stderr_done:
@@ -97,26 +96,23 @@ func listenForPatternMatches(reader io.ReadCloser, scanner_type string, pattern 
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		fmt.Println(scanner_type, ":", line)
-		if matched, _ := matchPattern(line, pattern); matched {
+
+		log(scanner_type, ":", line)
+
+		matched, err := regexp.MatchString(pattern, line)
+		if err != nil {
+			warn("Regex matching error", scanner_type, ":", err)
+		}
+		if matched {
 			pattern_match <- line
-			return
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "Scanner error", scanner_type, ":", err)
+		warn("Scanner error", scanner_type, ":", err)
 	}
 
 	done <- true
-}
-
-func matchPattern(text string, pattern string) (bool, error) {
-	matched, err := regexp.MatchString(pattern, text)
-	if err != nil {
-		return false, err
-	}
-	return matched, nil
 }
 
 const (
@@ -124,16 +120,27 @@ const (
 	ERROR_TIMEOUT           = "timeout reached, pattern not matched"
 )
 
-func returnTimeout(cmd *exec.Cmd) (string, error) {
+func returnTimeout(cmd *exec.Cmd) error {
 	cmd.Process.Kill()
-	return "", errors.New(ERROR_TIMEOUT)
+	return errors.New(ERROR_TIMEOUT)
 }
 
-func returnMatch(line string, cmd *exec.Cmd) (string, error) {
-	cmd.Process.Kill()
-	return line, nil
+func returnMatch(line string, cmd *exec.Cmd, do_kill bool) error {
+	if do_kill {
+		cmd.Process.Kill()
+	}
+	log("pattern matched", line)
+	return nil
 }
 
-func returnNoMatch() (string, error) {
-	return "", errors.New(ERROR_PATTERN_NOT_FOUND)
+func returnNoMatch() error {
+	return errors.New(ERROR_PATTERN_NOT_FOUND)
+}
+
+func warn(things ...any) {
+	fmt.Fprintln(os.Stderr, things...)
+}
+
+func log(things ...any) {
+	fmt.Println(things...)
 }
