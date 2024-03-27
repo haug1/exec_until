@@ -49,7 +49,8 @@ func main() {
 }
 
 func executeCommandUntilMatch(command string, pattern string, timeout time.Duration, do_kill bool) error {
-	cmd := exec.Command(command)
+	command_split := strings.Split(command, " ")
+	cmd := exec.Command(command_split[0], command_split[1:]...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	stdout, err := cmd.StdoutPipe()
