@@ -8,13 +8,14 @@ Simple CLI tool that executes the given command until the given timeout or a pat
 
 ```
 ❯ ./exec_until -h
-usage: ./exec_until [flags] <command>
+usage:./exec_until[flags] <command>
 
 flags:
+  -k    Whether the process should be terminated on pattern matched. (default true)
   -p string
         Pattern to match (required)
   -t duration
-        Timeout duration in seconds. Set to 0 for no timeout. (default 3s)
+        Timeout duration. Set to 0 for no timeout. (default 3s)
 ```
 
 ## Minimal examples

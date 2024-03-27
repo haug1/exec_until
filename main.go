@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -48,7 +49,9 @@ func main() {
 }
 
 func executeCommandUntilMatch(command string, pattern string, timeout time.Duration, do_kill bool) error {
-	cmd := exec.Command("bash", "-c", command)
+	cmd := exec.Command(command)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
@@ -86,7 +89,7 @@ func executeCommandUntilMatch(command string, pattern string, timeout time.Durat
 		case <-stderr_done:
 			return returnNoMatch()
 		case <-time.After(timeout):
-			return returnTimeout(cmd)
+			return returnTimeout(cmd, do_kill)
 		}
 	}
 }
@@ -120,15 +123,22 @@ const (
 	ERROR_TIMEOUT           = "timeout reached, pattern not matched"
 )
 
-func returnTimeout(cmd *exec.Cmd) error {
-	cmd.Process.Kill()
+func maybeKillProcess(do_kill bool, cmd *exec.Cmd) {
+	if do_kill {
+		if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGINT); err != nil {
+			warn("failed attempting to kill running command", err)
+		}
+		log("killed the running command")
+	}
+}
+
+func returnTimeout(cmd *exec.Cmd, do_kill bool) error {
+	maybeKillProcess(do_kill, cmd)
 	return errors.New(ERROR_TIMEOUT)
 }
 
 func returnMatch(line string, cmd *exec.Cmd, do_kill bool) error {
-	if do_kill {
-		cmd.Process.Kill()
-	}
+	maybeKillProcess(do_kill, cmd)
 	log("pattern matched", line)
 	return nil
 }
