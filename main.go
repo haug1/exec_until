@@ -20,7 +20,7 @@ func main() {
 	kill_flag := flag.Bool("k", true, "Whether the process should be terminated on pattern matched.")
 
 	flag.Usage = func() {
-		fmt.Print("usage:", os.Args[0], "[flags] <command>\n\n")
+		fmt.Print("usage: ", os.Args[0], " [flags] <command>\n\n")
 		fmt.Println("flags:")
 		flag.PrintDefaults()
 	}
