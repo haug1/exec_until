@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// TODO: Test that the process is terminated after the pattern is matched
 func TestMatchesPatternInStdOut(t *testing.T) {
 	test_command := "echo pattern matched"
 	pattern := "pattern matched"
@@ -23,6 +22,40 @@ func TestMatchesPatternInStdOut(t *testing.T) {
 
 	if !strings.Contains(string(output), expected_output) {
 		t.Errorf("Unexpected output: got %s, want %s", string(output), expected_output)
+	}
+}
+
+func TestProcessIsNotTerminatedAfterPatternIsMatchedWhenFlagKFalse(t *testing.T) {
+	test_command := "sleep 1"
+
+	cmd := exec.Command("./exec_until", "-k=false", "-t", "1ms", "-p", "never", test_command)
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Errorf("expected error, but no error returned. output: %s", output)
+	}
+
+	// verify
+	verify_cmd := exec.Command("bash", "-c", "ps aux | grep \"[s]leep 1\" | wc -l")
+	verify_output, _ := verify_cmd.CombinedOutput()
+	if strings.Trim(string(verify_output), "\n ") == "0" {
+		t.Errorf("expected `test_command=%s` not to be terminated", test_command)
+	}
+}
+
+func TestProcessIsTerminatedAfterPatternIsMatched(t *testing.T) {
+	test_command := "sleep 10"
+
+	cmd := exec.Command("./exec_until", "-t", "1ms", "-p", "never", test_command)
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Errorf("expected error, but no error returned. output: %s", output)
+	}
+
+	// verify
+	verify_cmd := exec.Command("bash", "-c", "ps aux | grep \"[s]leep 10\" | wc -l")
+	verify_output, _ := verify_cmd.CombinedOutput()
+	if strings.Trim(string(verify_output), "\n ") != "0" {
+		t.Errorf("expected `test_command` to be terminated")
 	}
 }
 
