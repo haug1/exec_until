@@ -61,12 +61,11 @@ func executeCommandUntilMatch(command string, pattern string, timeout time.Durat
 	if err != nil {
 		return err
 	}
-	stdout_done := make(chan bool)
-	stderr_done := make(chan bool)
+	done := make(chan bool)
 	pattern_match := make(chan string)
 
-	go listenForPatternMatches(stdout, "stdout", pattern, pattern_match, stdout_done)
-	go listenForPatternMatches(stderr, "stderr", pattern, pattern_match, stderr_done)
+	go listenForPatternMatches(stdout, "stdout", pattern, pattern_match, done)
+	go listenForPatternMatches(stderr, "stderr", pattern, pattern_match, nil)
 
 	if err := cmd.Start(); err != nil {
 		return err
@@ -76,18 +75,14 @@ func executeCommandUntilMatch(command string, pattern string, timeout time.Durat
 		select {
 		case line := <-pattern_match:
 			return returnMatch(line, cmd, do_kill)
-		case <-stdout_done:
-			return returnNoMatch()
-		case <-stderr_done:
+		case <-done:
 			return returnNoMatch()
 		}
 	} else {
 		select {
 		case line := <-pattern_match:
 			return returnMatch(line, cmd, do_kill)
-		case <-stdout_done:
-			return returnNoMatch()
-		case <-stderr_done:
+		case <-done:
 			return returnNoMatch()
 		case <-time.After(timeout):
 			return returnTimeout(cmd, do_kill)
@@ -109,6 +104,7 @@ func listenForPatternMatches(reader io.ReadCloser, scanner_type string, pattern 
 		}
 		if matched {
 			pattern_match <- line
+			return
 		}
 	}
 
@@ -116,7 +112,9 @@ func listenForPatternMatches(reader io.ReadCloser, scanner_type string, pattern 
 		warn("Scanner error", scanner_type, ":", err)
 	}
 
-	done <- true
+	if done != nil {
+		done <- true
+	}
 }
 
 const (

@@ -10,7 +10,7 @@ import (
 
 // TODO: Test that the process is terminated after the pattern is matched
 func TestMatchesPatternInStdOut(t *testing.T) {
-	test_command := "echo 'pattern matched'"
+	test_command := "echo pattern matched"
 	pattern := "pattern matched"
 
 	cmd := exec.Command("./exec_until", "-p", pattern, test_command)
